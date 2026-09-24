@@ -24,7 +24,10 @@ function toLivro(row: LivroRow): Livro {
     row.data_catalogacao,
   );
 }
+export class AvaliacaoId extends Identifier {
 
+  
+}
 export class SqliteLivroRepository implements LivroRepository {
   contarNoAcervoDoAutor(autorId: AutorId): number {
     const row = db
