@@ -21,3 +21,5 @@ export class LivroId extends Identifier {}
 
 /** Identidade que o sistema atribui — pelo mesmo motivo. */
 export class AutorId extends Identifier {}
+
+export class SolicitacaoId extends Identifier {}
