@@ -1,16 +1,19 @@
-import { storage } from "../../../../infrastructure/storage";
-import { NotImplemented } from "../../../../shared/errors";
+import { discardObject, requireStorage, storage } from "../../../../infrastructure/storage";
+import { inTransaction } from "../../../../infrastructure/transaction";
+import { NotFound } from "../../../../shared/errors";
+import { photoKey } from "../../infrastructure/photos";
+import { invalidateAuthorSearch } from "../../infrastructure/searchCache";
 
 /**
- * UC26: remove a foto do autor.
- *
- * TODO (atividade): siga removeBookCover, em
- * modules/catalog/features/manage-book-cover/removeBookCover.ts:
- *   1. sem RustFS (requireStorage), 503 antes de mexer no banco;
- *   2. numa transação, zere foto_atualizada_em; autor inexistente, 404;
- *   3. só então descarte o objeto em photoKey(id) com discardObject;
- *   4. invalide o cache da busca de autores.
+ * UC26: a ordem é a inversa do envio. Primeiro o Postgres esquece a foto; depois
+ * o objeto sai do bucket. Se o RustFS falhar nesse último passo, sobra um objeto
+ * órfão, mas nenhum autor aponta para ele.
  */
 export async function removeAuthorPhoto(id: number, client = storage): Promise<void> {
-  throw new NotImplemented("UC26 ainda não implementado: remover a foto do autor");
+  // sem RustFS, 503 antes de mexer no banco
+  requireStorage(client);
+  const [row] = await inTransaction((tx) => tx`UPDATE autores SET foto_atualizada_em = NULL WHERE id = ${id} RETURNING id`);
+  if (!row) throw new NotFound("Autor não encontrado");
+  await discardObject(photoKey(id), client);
+  await invalidateAuthorSearch();
 }

@@ -20,11 +20,11 @@ const sendPhoto = (id: number, bytes: Uint8Array, name = "foto.png", type = "ima
 
 const authorById = async (id: number) => (await api("GET", `/autores/${id}`)).json();
 
-test.todo("UC26: a chave da foto pertence ao módulo Autoria", () => {
+test("UC26: a chave da foto pertence ao módulo Autoria", () => {
   expect(photoKey(7)).toBe("autoria/autores/7/foto");
 });
 
-test.todo("UC26: envia a foto, devolve fotoUrl e serve os mesmos bytes", async () => {
+test("UC26: envia a foto, devolve fotoUrl e serve os mesmos bytes", async () => {
   const author = await testAuthor();
   const response = await sendPhoto(author.id, PNG);
   expect(response.status).toBe(200);
@@ -39,7 +39,7 @@ test.todo("UC26: envia a foto, devolve fotoUrl e serve os mesmos bytes", async (
   expect(await getObject(photoKey(author.id))).not.toBeNull();
 });
 
-test.todo("UC26: trocar a foto substitui o objeto e muda a fotoUrl", async () => {
+test("UC26: trocar a foto substitui o objeto e muda a fotoUrl", async () => {
   const author = await testAuthor();
   const first = (await (await sendPhoto(author.id, PNG)).json()).fotoUrl;
   await Bun.sleep(5);
@@ -50,7 +50,7 @@ test.todo("UC26: trocar a foto substitui o objeto e muda a fotoUrl", async () =>
   expect(new Uint8Array(await photo.arrayBuffer())).toEqual(JPEG);
 });
 
-test.todo("UC26: recusa o que não é imagem (400), o que passa de 2 MB (413) e autor inexistente (404)", async () => {
+test("UC26: recusa o que não é imagem (400), o que passa de 2 MB (413) e autor inexistente (404)", async () => {
   const author = await testAuthor();
   expect((await sendPhoto(author.id, FAKE_JPEG, "foto.jpg", "image/jpeg")).status).toBe(400);
   const big = new Uint8Array(MAX_IMAGE_BYTES + 1);
@@ -64,7 +64,7 @@ test.todo("UC26: recusa o que não é imagem (400), o que passa de 2 MB (413) e 
   expect(await getObject(photoKey(author.id))).toBeNull();
 });
 
-test.todo("UC26: remover a foto zera fotoUrl e apaga o objeto do bucket", async () => {
+test("UC26: remover a foto zera fotoUrl e apaga o objeto do bucket", async () => {
   const author = await testAuthor();
   await sendPhoto(author.id, PNG);
   expect((await api("DELETE", `/autores/${author.id}/foto`)).status).toBe(204);
@@ -74,7 +74,7 @@ test.todo("UC26: remover a foto zera fotoUrl e apaga o objeto do bucket", async 
   expect((await api("DELETE", "/autores/2147483647/foto")).status).toBe(404);
 });
 
-test.todo("UC26: sem RustFS, 503 e o autor continua como estava", async () => {
+test("UC26: sem RustFS, 503 e o autor continua como estava", async () => {
   const author = await testAuthor();
   const image = { bytes: PNG, type: "image/png" as const };
   await expect(uploadAuthorPhoto(author.id, image, authorshipIntegration, { client: null })).rejects.toBeInstanceOf(ServiceUnavailable);
@@ -85,7 +85,7 @@ test.todo("UC26: sem RustFS, 503 e o autor continua como estava", async () => {
   expect((await authorById(author.id)).fotoUrl).not.toBeNull();
 });
 
-test.todo("UC26: enviar e remover a foto invalidam o cache da busca de autores", async () => {
+test("UC26: enviar e remover a foto invalidam o cache da busca de autores", async () => {
   const author = await testAuthor();
   const search = async () => {
     const response = await api("GET", `/autores?q=${encodeURIComponent(author.nome)}`);
@@ -106,7 +106,7 @@ test.todo("UC26: enviar e remover a foto invalidam o cache da busca de autores",
   expect(afterRemove.authors[0]!.fotoUrl).toBeNull();
 });
 
-test.todo("UC08: excluir o autor apaga a foto do bucket", async () => {
+test("UC08: excluir o autor apaga a foto do bucket", async () => {
   const author = await testAuthor();
   await sendPhoto(author.id, PNG);
   expect(await getObject(photoKey(author.id))).not.toBeNull();
