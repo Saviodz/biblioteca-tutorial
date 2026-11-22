@@ -30,7 +30,7 @@ export function scenario() {
   const memory = new InMemoryCirculationRepository();
   const time = { now: "2026-10-15T12:00:00Z" };
   const lookup: CirculationLookup = {
-    reader: async id => id <= 10 ? { id, name: `Leitor ${id}`, cpf: "52998224725" } : null,
+    reader: async id => id <= 10 ? { id, name: `Leitor ${id}`, cpf: "52998224725", email: `leitor${id}@exemplo.com` } : null,
     copy: async id => id <= 20 ? { id, bookTitle: `Livro ${id}`, registrationNumber: `2026-${String(id).padStart(6, "0")}` } : null,
   };
   function create<T extends CirculationUseCase>(UseCase: new (r: CirculationRepository, l: CirculationLookup, clock: Clock) => T): T {

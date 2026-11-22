@@ -12,27 +12,17 @@ import { loanReceiptJob, scheduleLoanReceipt, sendLoanReceipt } from "./loanRece
 import { brazilianDate } from "./receiptEmail";
 import { RegisterLoan } from "../features/register-loan/RegisterLoan";
 
-/*
- * Testes de aceite da atividade. Cada um começa como test.todo: o bun test lista,
- * mas não executa. Quando implementar a parte que um teste cobre, troque
- * test.todo por test e rode a suíte. Não altere o que os testes esperam.
- */
-
-// a suíte roda sem QUEUE_URL; aqui o cliente da fila é explícito, como nos testes da aula
 const queue = createRedis(process.env.TEST_QUEUE_URL ?? "redis://fila:6379");
 afterAll(() => queue.close());
 
-// sem espera: cada volta do worker lê o que há na fila e devolve o controle ao teste
 const workerOptions = { client: queue, consumer: "teste", blockMs: null, retryAfterMs: 300, maxDeliveries: 2 };
 
-/** Um provedor de e-mail fora do ar. */
 const failing: EmailSender = {
   async send() {
     throw new Error("provedor de e-mail fora do ar");
   },
 };
 
-/** Um empréstimo de um leitor novo, registrado pelo caso de uso, sem passar pela rota: o comprovante ainda não saiu. */
 async function newLoan() {
   const reader = await testReader();
   const copy = await testCopy();
@@ -47,17 +37,16 @@ async function receiptSentAt(loanId: number): Promise<Date | null> {
 
 const sentTo = (sender: MemorySender, address: string) => sender.sent.filter((email) => email.to === address);
 
-test.todo("o stream dos comprovantes pertence à Circulação", () => {
+test("o stream dos comprovantes pertence à Circulação", () => {
   expect(loanReceiptJob(null).stream).toBe(`${process.env.REDIS_PREFIX ?? "biblioteca"}:circulacao:fila:comprovantes`);
 });
 
-test.todo("UC19 API: sem fila, o comprovante sai na hora, para o e-mail do leitor", async () => {
+test("UC19 API: sem fila, o comprovante sai na hora, para o e-mail do leitor", async () => {
   const reader = await testReader();
   const copy = await testCopy();
   const response = await api("POST", "/emprestimos", { leitorId: reader.id, exemplarId: copy.id });
   expect(response.status).toBe(201);
   const loan = await response.json();
-  // a suíte manda os e-mails para a caixa de saída em memória (EMAIL_PROVIDER=memory)
   const received = sentTo(emailSender as MemorySender, reader.email);
   expect(received).toHaveLength(1);
   expect(received[0]).toMatchObject({ toName: reader.nome, subject: `Comprovante de empréstimo: ${loan.livroTitulo}` });
@@ -66,13 +55,12 @@ test.todo("UC19 API: sem fila, o comprovante sai na hora, para o e-mail do leito
   expect(await receiptSentAt(loan.id)).not.toBeNull();
 });
 
-test.todo("UC19: com fila, a mensagem leva só o id do empréstimo, e o worker manda o comprovante", async () => {
+test("UC19: com fila, a mensagem leva só o id do empréstimo, e o worker manda o comprovante", async () => {
   const { reader, loan } = await newLoan();
   const sender = createMemorySender();
   const job = loanReceiptJob(sender);
   await prepareGroups([job], queue);
   await scheduleLoanReceipt(loan.id, { client: queue, sender });
-  // publicou e voltou: ninguém mandou nada ainda
   expect(sender.sent).toHaveLength(0);
   const [last] = await queue.send("XREVRANGE", [job.stream, "+", "-", "COUNT", "1"]) as [string, string[]][];
   const fields = last![1];
@@ -82,7 +70,7 @@ test.todo("UC19: com fila, a mensagem leva só o id do empréstimo, e o worker m
   expect(await receiptSentAt(loan.id)).not.toBeNull();
 });
 
-test.todo("a mesma mensagem entregue duas vezes manda um e-mail só", async () => {
+test("a mesma mensagem entregue duas vezes manda um e-mail só", async () => {
   const { reader, loan } = await newLoan();
   const sender = createMemorySender();
   const job = loanReceiptJob(sender);
@@ -92,7 +80,7 @@ test.todo("a mesma mensagem entregue duas vezes manda um e-mail só", async () =
   expect(await sendLoanReceipt(loan.id, sender)).toBe("já enviado");
 });
 
-test.todo("o leitor trocou de e-mail antes do envio: o comprovante vai para o endereço atual", async () => {
+test("o leitor trocou de e-mail antes do envio: o comprovante vai para o endereço atual", async () => {
   const { reader, loan } = await newLoan();
   const sender = createMemorySender();
   const job = loanReceiptJob(sender);
@@ -106,7 +94,7 @@ test.todo("o leitor trocou de e-mail antes do envio: o comprovante vai para o en
   expect(sentTo(sender, newEmail)).toHaveLength(1);
 });
 
-test.todo("se o provedor falha, a tarefa lança e o comprovante não fica marcado; a nova tentativa envia", async () => {
+test("se o provedor falha, a tarefa lança e o comprovante não fica marcado; a nova tentativa envia", async () => {
   const { reader, loan } = await newLoan();
   await expect(loanReceiptJob(failing).handle({ loanId: loan.id })).rejects.toThrow("provedor de e-mail fora do ar");
   expect(await receiptSentAt(loan.id)).toBeNull();
@@ -116,7 +104,7 @@ test.todo("se o provedor falha, a tarefa lança e o comprovante não fica marcad
   expect(await receiptSentAt(loan.id)).not.toBeNull();
 });
 
-test.todo("sem fila, o comprovante sai na hora; se o provedor falha, pedir o comprovante não lança", async () => {
+test("sem fila, o comprovante sai na hora; se o provedor falha, pedir o comprovante não lança", async () => {
   const { reader, loan } = await newLoan();
   await scheduleLoanReceipt(loan.id, { client: null, sender: failing });
   expect(await receiptSentAt(loan.id)).toBeNull();
@@ -125,7 +113,7 @@ test.todo("sem fila, o comprovante sai na hora; se o provedor falha, pedir o com
   expect(sentTo(sender, reader.email)).toHaveLength(1);
 });
 
-test.todo("empréstimo inexistente não manda nada nem lança; mensagem sem o id falha", async () => {
+test("empréstimo inexistente não manda nada nem lança; mensagem sem o id falha", async () => {
   const sender = createMemorySender();
   expect(await sendLoanReceipt(2147483647, sender)).toBe("empréstimo não encontrado");
   await loanReceiptJob(sender).handle({ loanId: 2147483647 });
@@ -134,7 +122,7 @@ test.todo("empréstimo inexistente não manda nada nem lança; mensagem sem o id
   expect(sender.sent).toHaveLength(0);
 });
 
-test.todo("sem remetente configurado, nada é enviado nem marcado", async () => {
+test("sem remetente configurado, nada é enviado nem marcado", async () => {
   const { loan } = await newLoan();
   expect(await sendLoanReceipt(loan.id, null)).toBe("sem remetente");
   await loanReceiptJob(null).handle({ loanId: loan.id });
